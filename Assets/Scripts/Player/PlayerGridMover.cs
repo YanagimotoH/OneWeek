@@ -10,6 +10,14 @@ public class PlayerGridMover : MonoBehaviour
     [SerializeField] float moveDuration = 0.1f;
 
     bool isMoving;
+    IGridMoveValidator[] moveValidators;
+
+    public Vector2 LastMoveDirection { get; private set; } = Vector2.up;
+
+    void Awake()
+    {
+        moveValidators = GetComponents<IGridMoveValidator>();
+    }
 
     void Update()
     {
@@ -26,6 +34,12 @@ public class PlayerGridMover : MonoBehaviour
 
         Vector3 target = transform.position + direction * gridSize;
         target.z = transform.position.z;
+        if (!CanMoveTo(target))
+        {
+            return;
+        }
+
+        LastMoveDirection = new Vector2(direction.x, direction.y).normalized;
         StartCoroutine(MoveTo(target));
     }
 
@@ -82,6 +96,24 @@ public class PlayerGridMover : MonoBehaviour
 
         return Vector3.zero;
 #endif
+    }
+
+    bool CanMoveTo(Vector3 target)
+    {
+        if (moveValidators == null || moveValidators.Length == 0)
+        {
+            return true;
+        }
+
+        foreach (IGridMoveValidator validator in moveValidators)
+        {
+            if (validator != null && !validator.CanMoveTo(target))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     IEnumerator MoveTo(Vector3 target)
