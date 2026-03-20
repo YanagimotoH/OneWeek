@@ -8,6 +8,8 @@ public class PlayerGridMover : MonoBehaviour
 {
     [SerializeField] float gridSize = 1f;
     [SerializeField] float moveDuration = 0.1f;
+    [SerializeField] Animator animator;
+    [SerializeField] string movingBoolName = "IsMoving";
 
     bool isMoving;
     IGridMoveValidator[] moveValidators;
@@ -17,6 +19,10 @@ public class PlayerGridMover : MonoBehaviour
     void Awake()
     {
         moveValidators = GetComponents<IGridMoveValidator>();
+        if (animator == null)
+        {
+            animator = GetComponent<Animator>();
+        }
     }
 
     void Update()
@@ -40,6 +46,7 @@ public class PlayerGridMover : MonoBehaviour
         }
 
         LastMoveDirection = new Vector2(direction.x, direction.y).normalized;
+        ApplyFacing(LastMoveDirection);
         StartCoroutine(MoveTo(target));
     }
 
@@ -52,44 +59,44 @@ public class PlayerGridMover : MonoBehaviour
             return Vector3.zero;
         }
 
-        if (keyboard.wKey.wasPressedThisFrame || keyboard.upArrowKey.wasPressedThisFrame)
+        if (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed)
         {
             return Vector3.up;
         }
 
-        if (keyboard.sKey.wasPressedThisFrame || keyboard.downArrowKey.wasPressedThisFrame)
+        if (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed)
         {
             return Vector3.down;
         }
 
-        if (keyboard.aKey.wasPressedThisFrame || keyboard.leftArrowKey.wasPressedThisFrame)
+        if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed)
         {
             return Vector3.left;
         }
 
-        if (keyboard.dKey.wasPressedThisFrame || keyboard.rightArrowKey.wasPressedThisFrame)
+        if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed)
         {
             return Vector3.right;
         }
 
         return Vector3.zero;
 #else
-        if (Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow))
+        if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))
         {
             return Vector3.up;
         }
 
-        if (Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow))
+        if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow))
         {
             return Vector3.down;
         }
 
-        if (Input.GetKeyDown(KeyCode.A) || Input.GetKeyDown(KeyCode.LeftArrow))
+        if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
         {
             return Vector3.left;
         }
 
-        if (Input.GetKeyDown(KeyCode.D) || Input.GetKeyDown(KeyCode.RightArrow))
+        if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
         {
             return Vector3.right;
         }
@@ -119,6 +126,7 @@ public class PlayerGridMover : MonoBehaviour
     IEnumerator MoveTo(Vector3 target)
     {
         isMoving = true;
+        SetMoving(true);
         Vector3 start = transform.position;
         float elapsed = 0f;
 
@@ -132,5 +140,27 @@ public class PlayerGridMover : MonoBehaviour
 
         transform.position = target;
         isMoving = false;
+        SetMoving(false);
+    }
+
+    void SetMoving(bool moving)
+    {
+        if (animator == null || string.IsNullOrEmpty(movingBoolName))
+        {
+            return;
+        }
+
+        animator.SetBool(movingBoolName, moving);
+    }
+
+    void ApplyFacing(Vector2 direction)
+    {
+        if (direction == Vector2.zero)
+        {
+            return;
+        }
+
+        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f;
+        transform.rotation = Quaternion.Euler(0f, 0f, angle);
     }
 }
