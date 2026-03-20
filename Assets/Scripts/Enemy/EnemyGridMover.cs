@@ -11,7 +11,10 @@ public class EnemyGridMover : MonoBehaviour
     [SerializeField] string targetTag = "Player";
 
     bool isMoving;
+    bool isPaused;
     IGridMoveValidator[] moveValidators;
+
+    public Vector2 LastMoveDirection { get; private set; } = Vector2.up;
 
     void Awake()
     {
@@ -37,6 +40,12 @@ public class EnemyGridMover : MonoBehaviour
     {
         while (true)
         {
+            if (isPaused)
+            {
+                yield return null;
+                continue;
+            }
+
             if (!isMoving && target != null)
             {
                 Vector3 next = GetNextGridStep(target.position);
@@ -72,6 +81,14 @@ public class EnemyGridMover : MonoBehaviour
     {
         isMoving = true;
         Vector3 start = transform.position;
+        Vector3 delta = targetPosition - start;
+        delta.z = 0f;
+        if (delta != Vector3.zero)
+        {
+            LastMoveDirection = new Vector2(delta.x, delta.y).normalized;
+            ApplyFacing(LastMoveDirection);
+        }
+
         float elapsed = 0f;
 
         while (elapsed < moveDuration)
@@ -111,5 +128,21 @@ public class EnemyGridMover : MonoBehaviour
         float x = Mathf.Round((position.x - gridOffset.x) / gridSize) * gridSize + gridOffset.x;
         float y = Mathf.Round((position.y - gridOffset.y) / gridSize) * gridSize + gridOffset.y;
         return new Vector3(x, y, position.z);
+    }
+
+    public void SetPaused(bool paused)
+    {
+        isPaused = paused;
+    }
+
+    void ApplyFacing(Vector2 direction)
+    {
+        if (direction == Vector2.zero)
+        {
+            return;
+        }
+
+        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f;
+        transform.rotation = Quaternion.Euler(0f, 0f, angle);
     }
 }

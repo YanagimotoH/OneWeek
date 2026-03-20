@@ -12,6 +12,8 @@ public class ProceduralMapGenerator : MonoBehaviour
     [SerializeField] int seed;
     [SerializeField] int extraOpenings;
     [SerializeField] bool generateOnStart = true;
+    [SerializeField] int deadEndPruneIterations = 2;
+    [SerializeField] int minGoalDistance = 10;
 
     [Header("Room")]
     [SerializeField] Vector2Int roomSizeMin = new Vector2Int(7, 7);
@@ -38,11 +40,16 @@ public class ProceduralMapGenerator : MonoBehaviour
     [Header("Goal")]
     [SerializeField] TileBase frontGoalTile;
     [SerializeField] TileBase backGoalTile;
+    [SerializeField] string goalTriggerTag = "Player";
 
     [Header("Enemies")]
     [SerializeField] GameObject enemyPrefab;
+    [SerializeField] GameObject enemyPrefab2;
     [SerializeField] Transform enemyParent;
     [SerializeField] int enemyCount = 5;
+
+    GameObject goalTriggerObject;
+    Vector3Int? lastStartCell;
 
     void Start()
     {
@@ -57,21 +64,129 @@ public class ProceduralMapGenerator : MonoBehaviour
     {
         int width = MakeOdd(size.x);
         int height = MakeOdd(size.y);
-        Vector2Int start = SanitizeStart(startCell, width, height);
+        Vector2Int fallbackStart = SanitizeStart(startCell, width, height);
 
         System.Random rng = randomSeed ? new System.Random(Environment.TickCount) : new System.Random(seed);
-        bool[,] floor = GenerateMaze(width, height, start, rng);
+
+        bool[,] floor = GenerateMaze(width, height, fallbackStart, rng);
+        floor[fallbackStart.x, fallbackStart.y] = true;
         if (extraOpenings > 0)
         {
             AddExtraOpenings(floor, width, height, rng, extraOpenings);
         }
 
         CreateRoom(floor, width, height, rng);
+        AddOuterRingAndCross(floor, width, height);
+        PruneIsolatedTiles(floor, width, height, deadEndPruneIterations);
+
+        Vector2Int start = GetRandomFloorCell(floor, width, height, rng, fallbackStart);
+        EnsureConnectivity(floor, width, height, start);
 
         ApplyTiles(floor, width, height);
         PlaceStart(start);
-        Vector2Int goal = PlaceGoal(floor, width, height, start);
+        Vector2Int goal = PlaceGoal(floor, width, height, start, rng);
         PlaceEnemies(floor, width, height, start, goal, rng);
+    }
+
+    Vector2Int GetRandomFloorCell(bool[,] floor, int width, int height, System.Random rng, Vector2Int fallback)
+    {
+        List<Vector2Int> candidates = new List<Vector2Int>();
+        for (int x = 1; x < width - 1; x++)
+        {
+            for (int y = 1; y < height - 1; y++)
+            {
+                if (floor[x, y])
+                {
+                    candidates.Add(new Vector2Int(x, y));
+                }
+            }
+        }
+
+        if (candidates.Count == 0)
+        {
+            return fallback;
+        }
+
+        return candidates[rng.Next(candidates.Count)];
+    }
+
+    void AddOuterRingAndCross(bool[,] floor, int width, int height)
+    {
+        for (int x = 1; x < width - 1; x++)
+        {
+            floor[x, 1] = true;
+            floor[x, height - 2] = true;
+        }
+
+        for (int y = 1; y < height - 1; y++)
+        {
+            floor[1, y] = true;
+            floor[width - 2, y] = true;
+        }
+
+        int midX = width / 2;
+        int midY = height / 2;
+
+        for (int x = 1; x < width - 1; x++)
+        {
+            floor[x, midY] = true;
+        }
+
+        for (int y = 1; y < height - 1; y++)
+        {
+            floor[midX, y] = true;
+        }
+    }
+
+    void EnsureConnectivity(bool[,] floor, int width, int height, Vector2Int start)
+    {
+        bool[,] visited = new bool[width, height];
+        Queue<Vector2Int> queue = new Queue<Vector2Int>();
+        if (floor[start.x, start.y])
+        {
+            queue.Enqueue(start);
+            visited[start.x, start.y] = true;
+        }
+
+        Vector2Int[] directions = new[]
+        {
+            Vector2Int.up,
+            Vector2Int.down,
+            Vector2Int.left,
+            Vector2Int.right
+        };
+
+        while (queue.Count > 0)
+        {
+            Vector2Int current = queue.Dequeue();
+            foreach (Vector2Int direction in directions)
+            {
+                Vector2Int next = current + direction;
+                if (next.x < 0 || next.y < 0 || next.x >= width || next.y >= height)
+                {
+                    continue;
+                }
+
+                if (!floor[next.x, next.y] || visited[next.x, next.y])
+                {
+                    continue;
+                }
+
+                visited[next.x, next.y] = true;
+                queue.Enqueue(next);
+            }
+        }
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                if (floor[x, y] && !visited[x, y])
+                {
+                    floor[x, y] = false;
+                }
+            }
+        }
     }
 
     int MakeOdd(int value)
@@ -319,6 +434,20 @@ public class ProceduralMapGenerator : MonoBehaviour
             return;
         }
 
+        if (lastStartCell.HasValue)
+        {
+            Vector3Int previous = lastStartCell.Value;
+            if (frontFloorTile != null)
+            {
+                frontFloorTilemap.SetTile(previous, frontFloorTile);
+            }
+
+            if (backFloorTilemap != null && backFloorTile != null)
+            {
+                backFloorTilemap.SetTile(previous, backFloorTile);
+            }
+        }
+
         Vector3Int cell = new Vector3Int(start.x + origin.x, start.y + origin.y, 0);
         Vector3 world = frontFloorTilemap.GetCellCenterWorld(cell);
 
@@ -338,9 +467,11 @@ public class ProceduralMapGenerator : MonoBehaviour
             playerPosition.z = player.position.z;
             player.SetPositionAndRotation(playerPosition, player.rotation);
         }
+
+        lastStartCell = cell;
     }
 
-    Vector2Int PlaceGoal(bool[,] floor, int width, int height, Vector2Int start)
+    Vector2Int PlaceGoal(bool[,] floor, int width, int height, Vector2Int start, System.Random rng)
     {
         if (frontFloorTilemap == null)
         {
@@ -394,7 +525,21 @@ public class ProceduralMapGenerator : MonoBehaviour
             }
         }
 
-        Vector3Int cell = new Vector3Int(farthest.x + origin.x, farthest.y + origin.y, 0);
+        List<Vector2Int> goalCandidates = new List<Vector2Int>();
+        for (int x = 1; x < width - 1; x++)
+        {
+            for (int y = 1; y < height - 1; y++)
+            {
+                if (distance[x, y] >= minGoalDistance)
+                {
+                    goalCandidates.Add(new Vector2Int(x, y));
+                }
+            }
+        }
+
+        Vector2Int goal = goalCandidates.Count > 0 ? goalCandidates[rng.Next(goalCandidates.Count)] : farthest;
+
+        Vector3Int cell = new Vector3Int(goal.x + origin.x, goal.y + origin.y, 0);
 
         if (frontGoalTile != null)
         {
@@ -406,12 +551,42 @@ public class ProceduralMapGenerator : MonoBehaviour
             backFloorTilemap.SetTile(cell, backGoalTile);
         }
 
-        return farthest;
+        Vector3 world = frontFloorTilemap.GetCellCenterWorld(cell);
+        SpawnGoalTrigger(world);
+
+        return goal;
+    }
+
+    void SpawnGoalTrigger(Vector3 world)
+    {
+        if (goalTriggerObject != null)
+        {
+            Destroy(goalTriggerObject);
+        }
+
+        goalTriggerObject = new GameObject("GoalTrigger");
+        goalTriggerObject.transform.position = world;
+
+        BoxCollider2D collider = goalTriggerObject.AddComponent<BoxCollider2D>();
+        collider.isTrigger = true;
+        if (frontFloorTilemap != null)
+        {
+            Vector3 size = frontFloorTilemap.cellSize;
+            collider.size = new Vector2(size.x, size.y);
+        }
+
+        GoalTrigger trigger = goalTriggerObject.AddComponent<GoalTrigger>();
+        trigger.Initialize(this, goalTriggerTag);
+    }
+
+    public void RegenerateFromGoal()
+    {
+        Generate();
     }
 
     void PlaceEnemies(bool[,] floor, int width, int height, Vector2Int start, Vector2Int goal, System.Random rng)
     {
-        if (enemyPrefab == null || frontFloorTilemap == null || enemyCount <= 0)
+        if ((enemyPrefab == null && enemyPrefab2 == null) || frontFloorTilemap == null || enemyCount <= 0)
         {
             return;
         }
@@ -453,8 +628,71 @@ public class ProceduralMapGenerator : MonoBehaviour
 
             Vector3Int cell = new Vector3Int(chosen.x + origin.x, chosen.y + origin.y, 0);
             Vector3 world = frontFloorTilemap.GetCellCenterWorld(cell);
-            Instantiate(enemyPrefab, world, Quaternion.identity, enemyParent);
+
+            GameObject prefabToSpawn = null;
+            if (enemyPrefab != null && enemyPrefab2 != null)
+            {
+                prefabToSpawn = rng.Next(2) == 0 ? enemyPrefab : enemyPrefab2;
+            }
+            else
+            {
+                prefabToSpawn = enemyPrefab != null ? enemyPrefab : enemyPrefab2;
+            }
+
+            if (prefabToSpawn != null)
+            {
+                GameObject enemy = Instantiate(prefabToSpawn, world, Quaternion.identity, enemyParent);
+                if (enemy.GetComponent<ScoreOnDeath>() == null)
+                {
+                    enemy.AddComponent<ScoreOnDeath>();
+                }
+            }
         }
+    }
+
+    void PruneIsolatedTiles(bool[,] floor, int width, int height, int iterations)
+    {
+        if (iterations <= 0)
+        {
+            return;
+        }
+
+        for (int iteration = 0; iteration < iterations; iteration++)
+        {
+            bool changed = false;
+            for (int x = 1; x < width - 1; x++)
+            {
+                for (int y = 1; y < height - 1; y++)
+                {
+                    if (!floor[x, y])
+                    {
+                        continue;
+                    }
+
+                    int neighbors = CountFloorNeighbors(floor, x, y);
+                    if (neighbors == 0)
+                    {
+                        floor[x, y] = false;
+                        changed = true;
+                    }
+                }
+            }
+
+            if (!changed)
+            {
+                break;
+            }
+        }
+    }
+
+    int CountFloorNeighbors(bool[,] floor, int x, int y)
+    {
+        int count = 0;
+        if (floor[x + 1, y]) count++;
+        if (floor[x - 1, y]) count++;
+        if (floor[x, y + 1]) count++;
+        if (floor[x, y - 1]) count++;
+        return count;
     }
 
     int ClampOdd(int value)

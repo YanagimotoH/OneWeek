@@ -1,21 +1,22 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class ContactDamage : MonoBehaviour
 {
     [SerializeField] string targetTag = "Player";
     [SerializeField] int damagePerTick = 1;
-    [SerializeField] float tickIntervalSeconds = 1f;
+    [SerializeField] CharacterStats stats;
 
-    float nextDamageTime;
+    readonly HashSet<Collider2D> damagedTargets = new HashSet<Collider2D>();
 
-    void OnTriggerStay(Collider other)
+    void OnTriggerEnter2D(Collider2D other)
     {
         if (!other.CompareTag(targetTag))
         {
             return;
         }
 
-        if (Time.time < nextDamageTime)
+        if (damagedTargets.Contains(other))
         {
             return;
         }
@@ -26,7 +27,21 @@ public class ContactDamage : MonoBehaviour
             return;
         }
 
-        health.TakeDamage(damagePerTick);
-        nextDamageTime = Time.time + tickIntervalSeconds;
+        int damage = stats != null ? stats.AttackPower : damagePerTick;
+        health.TakeDamage(damage);
+        damagedTargets.Add(other);
+    }
+
+    void OnTriggerExit2D(Collider2D other)
+    {
+        if (damagedTargets.Contains(other))
+        {
+            damagedTargets.Remove(other);
+        }
+    }
+
+    void OnDisable()
+    {
+        damagedTargets.Clear();
     }
 }
