@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -16,12 +17,22 @@ public class PlayerAttack : MonoBehaviour
     [SerializeField] float lineDurationSeconds = 0.2f;
     [SerializeField] float lineWidth = 0.1f;
     [SerializeField] float lineHitTolerance = 0.4f;
+    [SerializeField] float lineAutoHideSeconds = 0.4f;
+    [SerializeField] float lineFinishHideDelay = 0.1f;
+    [SerializeField] float lineSafetyHideSeconds = 0.6f;
     [SerializeField] Color lineColor = new Color(1f, 0f, 1f, 1f);
     [SerializeField] int lineSortingOrder = 6;
     [SerializeField] LineRenderer lineRenderer;
 
+    public event Action DamageDealt;
+
     bool isAttacking;
+    bool damageNotified;
+    bool lineVisible;
+    Coroutine lineHideRoutine;
+    Coroutine finishHideRoutine;
     Health health;
+    float lineDisableAt;
 
     void Awake()
     {
@@ -43,7 +54,7 @@ public class PlayerAttack : MonoBehaviour
     {
         if (health != null)
         {
-            health.Damaged += OnDamaged;
+            health.DamageTaken += OnDamaged;
         }
     }
 
@@ -51,7 +62,7 @@ public class PlayerAttack : MonoBehaviour
     {
         if (health != null)
         {
-            health.Damaged -= OnDamaged;
+            health.DamageTaken -= OnDamaged;
         }
 
         CancelAttack();
@@ -59,6 +70,11 @@ public class PlayerAttack : MonoBehaviour
 
     void Update()
     {
+        if (lineRenderer != null && lineRenderer.enabled && Time.time >= lineDisableAt && !isAttacking)
+        {
+            HideLine();
+        }
+
         if (gamemanager == null || !gamemanager.IsBackSide)
         {
             if (isAttacking)
@@ -91,6 +107,15 @@ public class PlayerAttack : MonoBehaviour
     IEnumerator PerformAttack()
     {
         isAttacking = true;
+        damageNotified = false;
+
+        Vector2 attackDir = gridMover != null ? gridMover.LastMoveDirection : Vector2.up;
+        if (attackDir == Vector2.zero)
+        {
+            attackDir = Vector2.up;
+        }
+
+        Vector3 forward = new Vector3(attackDir.x, attackDir.y, 0f).normalized;
 
         int damage = stats != null ? stats.AttackPower : baseDamage;
         HashSet<Health> damagedTargets = new HashSet<Health>();
@@ -102,7 +127,6 @@ public class PlayerAttack : MonoBehaviour
         {
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / lineDurationSeconds);
-            Vector3 forward = transform.up;
             Vector3 lineStart = transform.position;
             Vector3 lineEnd = lineStart + forward * lineDistance * t;
             ShowLine(lineStart, lineEnd);
@@ -110,12 +134,12 @@ public class PlayerAttack : MonoBehaviour
             yield return null;
         }
 
-        Vector3 finalForward = transform.up;
         Vector3 finalStart = transform.position;
-        Vector3 finalEnd = finalStart + finalForward * lineDistance;
+        Vector3 finalEnd = finalStart + forward * lineDistance;
         ShowLine(finalStart, finalEnd);
         ApplyLineDamage(finalStart, finalEnd, damage, damagedTargets);
         HideLine();
+        ScheduleFinishHide();
 
         isAttacking = false;
     }
@@ -140,6 +164,12 @@ public class PlayerAttack : MonoBehaviour
 
             health.TakeDamage(damage);
             damagedTargets.Add(health);
+
+            if (!damageNotified)
+            {
+                damageNotified = true;
+                DamageDealt?.Invoke();
+            }
         }
     }
 
@@ -188,6 +218,13 @@ public class PlayerAttack : MonoBehaviour
             return;
         }
 
+        if (!lineVisible)
+        {
+            lineVisible = true;
+            StartLineAutoHide();
+        }
+
+        lineDisableAt = Time.time + Mathf.Max(lineAutoHideSeconds, lineSafetyHideSeconds);
         lineRenderer.enabled = true;
         lineRenderer.SetPosition(0, start);
         lineRenderer.SetPosition(1, end);
@@ -201,6 +238,55 @@ public class PlayerAttack : MonoBehaviour
         }
 
         lineRenderer.enabled = false;
+        lineVisible = false;
+        if (lineHideRoutine != null)
+        {
+            StopCoroutine(lineHideRoutine);
+            lineHideRoutine = null;
+        }
+    }
+
+    void StartLineAutoHide()
+    {
+        if (lineAutoHideSeconds <= 0f)
+        {
+            return;
+        }
+
+        if (lineHideRoutine != null)
+        {
+            StopCoroutine(lineHideRoutine);
+        }
+
+        lineHideRoutine = StartCoroutine(LineAutoHideRoutine());
+    }
+
+    IEnumerator LineAutoHideRoutine()
+    {
+        yield return new WaitForSeconds(lineAutoHideSeconds);
+        HideLine();
+    }
+
+    void ScheduleFinishHide()
+    {
+        if (lineFinishHideDelay <= 0f)
+        {
+            return;
+        }
+
+        if (finishHideRoutine != null)
+        {
+            StopCoroutine(finishHideRoutine);
+        }
+
+        finishHideRoutine = StartCoroutine(FinishHideRoutine());
+    }
+
+    IEnumerator FinishHideRoutine()
+    {
+        yield return new WaitForSeconds(lineFinishHideDelay);
+        HideLine();
+        finishHideRoutine = null;
     }
 
     void CancelAttack()

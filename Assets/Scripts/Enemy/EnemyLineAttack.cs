@@ -9,6 +9,9 @@ public class EnemyLineAttack : MonoBehaviour
     [SerializeField] float attackDurationSeconds = 0.25f;
     [SerializeField] float maxDistance = 20f;
     [SerializeField] float lineWidth = 0.1f;
+    [SerializeField] float lineAutoHideSeconds = 0.4f;
+    [SerializeField] float lineFinishHideDelay = 0.1f;
+    [SerializeField] float lineSafetyHideSeconds = 0.6f;
     [SerializeField] Color lineColor = new Color(1f, 0f, 1f, 1f);
     [SerializeField] LayerMask wallMask;
     [SerializeField] float hitTolerance = 0.4f;
@@ -18,8 +21,12 @@ public class EnemyLineAttack : MonoBehaviour
 
     Transform target;
     bool isAttacking;
+    bool lineVisible;
+    Coroutine lineHideRoutine;
+    Coroutine finishHideRoutine;
     float nextAttackTime;
     Health health;
+    float lineDisableAt;
 
     void Awake()
     {
@@ -50,7 +57,7 @@ public class EnemyLineAttack : MonoBehaviour
 
         if (health != null)
         {
-            health.Damaged += OnDamaged;
+            health.DamageTaken += OnDamaged;
         }
 
         HideLine();
@@ -60,7 +67,7 @@ public class EnemyLineAttack : MonoBehaviour
     {
         if (health != null)
         {
-            health.Damaged -= OnDamaged;
+            health.DamageTaken -= OnDamaged;
         }
 
         CancelAttack();
@@ -68,6 +75,11 @@ public class EnemyLineAttack : MonoBehaviour
 
     void Update()
     {
+        if (lineRenderer != null && lineRenderer.enabled && Time.time >= lineDisableAt && !isAttacking)
+        {
+            HideLine();
+        }
+
         if (isAttacking || Time.time < nextAttackTime)
         {
             return;
@@ -117,6 +129,7 @@ public class EnemyLineAttack : MonoBehaviour
         }
 
         HideLine();
+        ScheduleFinishHide();
 
         if (mover != null)
         {
@@ -194,6 +207,13 @@ public class EnemyLineAttack : MonoBehaviour
             return;
         }
 
+        if (!lineVisible)
+        {
+            lineVisible = true;
+            StartLineAutoHide();
+        }
+
+        lineDisableAt = Time.time + Mathf.Max(lineAutoHideSeconds, lineSafetyHideSeconds);
         lineRenderer.enabled = true;
         lineRenderer.SetPosition(0, start);
         lineRenderer.SetPosition(1, end);
@@ -207,6 +227,55 @@ public class EnemyLineAttack : MonoBehaviour
         }
 
         lineRenderer.enabled = false;
+        lineVisible = false;
+        if (lineHideRoutine != null)
+        {
+            StopCoroutine(lineHideRoutine);
+            lineHideRoutine = null;
+        }
+    }
+
+    void StartLineAutoHide()
+    {
+        if (lineAutoHideSeconds <= 0f)
+        {
+            return;
+        }
+
+        if (lineHideRoutine != null)
+        {
+            StopCoroutine(lineHideRoutine);
+        }
+
+        lineHideRoutine = StartCoroutine(LineAutoHideRoutine());
+    }
+
+    IEnumerator LineAutoHideRoutine()
+    {
+        yield return new WaitForSeconds(lineAutoHideSeconds);
+        HideLine();
+    }
+
+    void ScheduleFinishHide()
+    {
+        if (lineFinishHideDelay <= 0f)
+        {
+            return;
+        }
+
+        if (finishHideRoutine != null)
+        {
+            StopCoroutine(finishHideRoutine);
+        }
+
+        finishHideRoutine = StartCoroutine(FinishHideRoutine());
+    }
+
+    IEnumerator FinishHideRoutine()
+    {
+        yield return new WaitForSeconds(lineFinishHideDelay);
+        HideLine();
+        finishHideRoutine = null;
     }
 
     void CancelAttack()

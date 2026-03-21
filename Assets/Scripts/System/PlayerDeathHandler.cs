@@ -1,10 +1,14 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using unityroom.Api;
 
 public class PlayerDeathHandler : MonoBehaviour
 {
     [SerializeField] Health health;
     [SerializeField] string resultSceneName = "ResultScene";
+    [SerializeField] bool sendScoreToUnityroom = true;
+    [SerializeField] int scoreboardNo = 1;
+    [SerializeField] ScoreboardWriteMode writeMode = ScoreboardWriteMode.Always;
 
     bool triggered;
 
@@ -58,6 +62,16 @@ public class PlayerDeathHandler : MonoBehaviour
         }
 
         triggered = true;
+
+        if (sendScoreToUnityroom)
+        {
+            float score = ScoreManager.Instance != null ? ScoreManager.Instance.Score : 0f;
+            if (UnityroomApiClient.Instance != null)
+            {
+                UnityroomApiClient.Instance.SendScore(scoreboardNo, score, writeMode);
+            }
+        }
+
         ScoreManager.Instance?.SetLastGameplayScene(SceneManager.GetActiveScene().name);
         SceneManager.LoadScene(resultSceneName);
     }

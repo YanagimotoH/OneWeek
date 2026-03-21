@@ -482,6 +482,12 @@ public class ProceduralMapGenerator : MonoBehaviour
         {
             Vector3 playerPosition = world;
             playerPosition.z = player.position.z;
+            PlayerGridMover mover = player.GetComponent<PlayerGridMover>();
+            if (mover != null)
+            {
+                mover.ForceSnapTo(playerPosition);
+            }
+
             Rigidbody2D body2D = player.GetComponent<Rigidbody2D>();
             if (body2D != null)
             {
@@ -489,7 +495,7 @@ public class ProceduralMapGenerator : MonoBehaviour
                 body2D.linearVelocity = Vector2.zero;
                 body2D.angularVelocity = 0f;
             }
-            else
+            else if (mover == null)
             {
                 player.SetPositionAndRotation(playerPosition, player.rotation);
             }

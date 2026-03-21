@@ -163,4 +163,12 @@ public class PlayerGridMover : MonoBehaviour
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f;
         transform.rotation = Quaternion.Euler(0f, 0f, angle);
     }
+
+    public void ForceSnapTo(Vector3 position)
+    {
+        StopAllCoroutines();
+        isMoving = false;
+        SetMoving(false);
+        transform.position = position;
+    }
 }
