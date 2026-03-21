@@ -21,6 +21,7 @@ public class PlayerAttack : MonoBehaviour
     [SerializeField] LineRenderer lineRenderer;
 
     bool isAttacking;
+    Health health;
 
     void Awake()
     {
@@ -34,16 +35,41 @@ public class PlayerAttack : MonoBehaviour
             lineRenderer = GetComponent<LineRenderer>();
         }
 
+        health = GetComponent<Health>();
         ApplyLineStyle();
     }
 
     void OnEnable()
     {
+        if (health != null)
+        {
+            health.Damaged += OnDamaged;
+        }
+    }
+
+    void OnDisable()
+    {
+        if (health != null)
+        {
+            health.Damaged -= OnDamaged;
+        }
+
+        CancelAttack();
     }
 
     void Update()
     {
-        if (gamemanager == null || !gamemanager.IsBackSide || isAttacking)
+        if (gamemanager == null || !gamemanager.IsBackSide)
+        {
+            if (isAttacking)
+            {
+                CancelAttack();
+            }
+
+            return;
+        }
+
+        if (isAttacking)
         {
             return;
         }
@@ -175,5 +201,20 @@ public class PlayerAttack : MonoBehaviour
         }
 
         lineRenderer.enabled = false;
+    }
+
+    void CancelAttack()
+    {
+        StopAllCoroutines();
+        HideLine();
+        isAttacking = false;
+    }
+
+    void OnDamaged(int amount)
+    {
+        if (isAttacking)
+        {
+            CancelAttack();
+        }
     }
 }

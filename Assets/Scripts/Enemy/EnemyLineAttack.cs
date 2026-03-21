@@ -19,6 +19,7 @@ public class EnemyLineAttack : MonoBehaviour
     Transform target;
     bool isAttacking;
     float nextAttackTime;
+    Health health;
 
     void Awake()
     {
@@ -32,6 +33,7 @@ public class EnemyLineAttack : MonoBehaviour
             mover = GetComponent<EnemyGridMover>();
         }
 
+        health = GetComponent<Health>();
         ApplyLineStyle();
     }
 
@@ -46,10 +48,22 @@ public class EnemyLineAttack : MonoBehaviour
             }
         }
 
-        if (lineRenderer != null)
+        if (health != null)
         {
-            lineRenderer.enabled = false;
+            health.Damaged += OnDamaged;
         }
+
+        HideLine();
+    }
+
+    void OnDisable()
+    {
+        if (health != null)
+        {
+            health.Damaged -= OnDamaged;
+        }
+
+        CancelAttack();
     }
 
     void Update()
@@ -193,5 +207,24 @@ public class EnemyLineAttack : MonoBehaviour
         }
 
         lineRenderer.enabled = false;
+    }
+
+    void CancelAttack()
+    {
+        StopAllCoroutines();
+        HideLine();
+        isAttacking = false;
+        if (mover != null)
+        {
+            mover.SetPaused(false);
+        }
+    }
+
+    void OnDamaged(int amount)
+    {
+        if (isAttacking)
+        {
+            CancelAttack();
+        }
     }
 }

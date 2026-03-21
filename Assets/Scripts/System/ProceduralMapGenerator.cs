@@ -36,6 +36,7 @@ public class ProceduralMapGenerator : MonoBehaviour
     [SerializeField] TileBase frontStartTile;
     [SerializeField] TileBase backStartTile;
     [SerializeField] Transform player;
+    [SerializeField] Transform startPanel;
 
     [Header("Goal")]
     [SerializeField] TileBase frontGoalTile;
@@ -50,6 +51,7 @@ public class ProceduralMapGenerator : MonoBehaviour
 
     GameObject goalTriggerObject;
     Vector3Int? lastStartCell;
+    readonly List<GameObject> spawnedEnemies = new List<GameObject>();
 
     void Start()
     {
@@ -85,7 +87,22 @@ public class ProceduralMapGenerator : MonoBehaviour
         ApplyTiles(floor, width, height);
         PlaceStart(start);
         Vector2Int goal = PlaceGoal(floor, width, height, start, rng);
+        ClearSpawnedEnemies();
         PlaceEnemies(floor, width, height, start, goal, rng);
+    }
+
+    void ClearSpawnedEnemies()
+    {
+        for (int i = spawnedEnemies.Count - 1; i >= 0; i--)
+        {
+            GameObject enemy = spawnedEnemies[i];
+            if (enemy != null)
+            {
+                Destroy(enemy);
+            }
+        }
+
+        spawnedEnemies.Clear();
     }
 
     Vector2Int GetRandomFloorCell(bool[,] floor, int width, int height, System.Random rng, Vector2Int fallback)
@@ -465,7 +482,24 @@ public class ProceduralMapGenerator : MonoBehaviour
         {
             Vector3 playerPosition = world;
             playerPosition.z = player.position.z;
-            player.SetPositionAndRotation(playerPosition, player.rotation);
+            Rigidbody2D body2D = player.GetComponent<Rigidbody2D>();
+            if (body2D != null)
+            {
+                body2D.position = playerPosition;
+                body2D.linearVelocity = Vector2.zero;
+                body2D.angularVelocity = 0f;
+            }
+            else
+            {
+                player.SetPositionAndRotation(playerPosition, player.rotation);
+            }
+        }
+
+        if (startPanel != null)
+        {
+            Vector3 panelPosition = world;
+            panelPosition.z = startPanel.position.z;
+            startPanel.position = panelPosition;
         }
 
         lastStartCell = cell;
@@ -599,6 +633,8 @@ public class ProceduralMapGenerator : MonoBehaviour
             }
         }
 
+        spawnedEnemies.RemoveAll(enemy => enemy == null);
+
         List<Vector2Int> candidates = new List<Vector2Int>();
         for (int x = 0; x < width; x++)
         {
@@ -642,6 +678,7 @@ public class ProceduralMapGenerator : MonoBehaviour
             if (prefabToSpawn != null)
             {
                 GameObject enemy = Instantiate(prefabToSpawn, world, Quaternion.identity, enemyParent);
+                spawnedEnemies.Add(enemy);
                 if (enemy.GetComponent<ScoreOnDeath>() == null)
                 {
                     enemy.AddComponent<ScoreOnDeath>();

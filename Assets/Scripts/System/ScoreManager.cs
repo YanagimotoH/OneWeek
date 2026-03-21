@@ -1,12 +1,18 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class ScoreManager : MonoBehaviour
 {
     [SerializeField] Text scoreText;
+    [SerializeField] string scoreTextObjectName = "ScoreText";
     [SerializeField] Vector2 offset = new Vector2(10f, -40f);
+    [SerializeField] string sortingLayerName = "UI";
     [SerializeField] int sortingOrder = 10;
     [SerializeField] string scoreFormat = "Score: {0}";
+    [SerializeField] bool resetOnSceneLoad;
+    [SerializeField] string resetSceneName = "GameScene";
+    [SerializeField] string[] hideScoreSceneNames = new[] { "TitleScene" };
 
     static ScoreManager instance;
 
@@ -16,16 +22,7 @@ public class ScoreManager : MonoBehaviour
         {
             if (instance == null)
             {
-                ScoreManager existing = FindObjectOfType<ScoreManager>();
-                if (existing != null)
-                {
-                    instance = existing;
-                }
-                else
-                {
-                    GameObject scoreObject = new GameObject("ScoreManager");
-                    instance = scoreObject.AddComponent<ScoreManager>();
-                }
+                instance = FindObjectOfType<ScoreManager>();
             }
 
             return instance;
@@ -45,16 +42,27 @@ public class ScoreManager : MonoBehaviour
 
         instance = this;
         DontDestroyOnLoad(gameObject);
-        EnsureText();
-        UpdateText();
+        SceneManager.sceneLoaded += OnSceneLoaded;
+        HandleScene(SceneManager.GetActiveScene());
     }
 
     void OnDestroy()
     {
         if (instance == this)
         {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
             instance = null;
         }
+    }
+
+    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        if (resetOnSceneLoad && !string.IsNullOrEmpty(resetSceneName) && scene.name == resetSceneName)
+        {
+            Score = 0;
+        }
+
+        HandleScene(scene);
     }
 
     public void AddScore(int amount)
@@ -79,31 +87,96 @@ public class ScoreManager : MonoBehaviour
         LastGameplayScene = sceneName;
     }
 
-    void EnsureText()
+    void HandleScene(Scene scene)
     {
-        if (scoreText != null)
+        if (IsHiddenScene(scene.name))
         {
+            DisableScoreDisplay();
             return;
         }
 
-        GameObject existing = GameObject.Find("ScoreCanvas");
-        Canvas canvas = null;
-        if (existing != null)
+        scoreText = null;
+        EnsureText();
+        UpdateText();
+    }
+
+    bool IsHiddenScene(string sceneName)
+    {
+        if (hideScoreSceneNames == null || hideScoreSceneNames.Length == 0)
         {
-            canvas = existing.GetComponent<Canvas>();
+            return false;
         }
+
+        foreach (string hiddenScene in hideScoreSceneNames)
+        {
+            if (!string.IsNullOrEmpty(hiddenScene) && hiddenScene == sceneName)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    void DisableScoreDisplay()
+    {
+        if (scoreText != null)
+        {
+            scoreText.enabled = false;
+        }
+
+        Canvas canvas = FindScoreCanvas();
+        if (canvas != null)
+        {
+            canvas.enabled = false;
+        }
+    }
+
+    Canvas FindScoreCanvas()
+    {
+        GameObject existing = GameObject.Find("ScoreCanvas");
+        if (existing == null)
+        {
+            return null;
+        }
+
+        return existing.GetComponent<Canvas>();
+    }
+
+    void EnsureText()
+    {
+        if (scoreText == null && !string.IsNullOrEmpty(scoreTextObjectName))
+        {
+            GameObject existingText = GameObject.Find(scoreTextObjectName);
+            if (existingText != null)
+            {
+                scoreText = existingText.GetComponent<Text>();
+            }
+        }
+
+        Canvas canvas = FindScoreCanvas();
 
         if (canvas == null)
         {
             GameObject canvasObject = new GameObject("ScoreCanvas");
             canvas = canvasObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = sortingOrder;
             canvasObject.AddComponent<CanvasScaler>();
             canvasObject.AddComponent<GraphicRaycaster>();
         }
 
-        GameObject textObject = new GameObject("ScoreText");
+        canvas.enabled = true;
+        canvas.overrideSorting = true;
+        canvas.sortingLayerName = sortingLayerName;
+        canvas.sortingOrder = sortingOrder;
+
+        if (scoreText != null)
+        {
+            scoreText.enabled = true;
+            return;
+        }
+
+        GameObject textObject = new GameObject(scoreTextObjectName);
         textObject.transform.SetParent(canvas.transform, false);
         scoreText = textObject.AddComponent<Text>();
         scoreText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -120,7 +193,7 @@ public class ScoreManager : MonoBehaviour
 
     void UpdateText()
     {
-        if (scoreText == null)
+        if (scoreText == null || !scoreText.enabled)
         {
             return;
         }

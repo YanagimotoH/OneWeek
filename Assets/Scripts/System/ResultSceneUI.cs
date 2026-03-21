@@ -7,6 +7,7 @@ public class ResultSceneUI : MonoBehaviour
     [SerializeField] string restartSceneName;
     [SerializeField] string titleSceneName = "TitleScene";
     [SerializeField] int sortingOrder = 20;
+    [SerializeField] string scoreTextObjectName = "ResultScoreText";
 
     Canvas canvas;
 
@@ -30,13 +31,21 @@ public class ResultSceneUI : MonoBehaviour
     {
         int score = ScoreManager.Instance != null ? ScoreManager.Instance.Score : 0;
 
-        Text scoreText = CreateText("ScoreText", string.Format("Score: {0}", score), 32, TextAnchor.MiddleCenter);
-        RectTransform scoreRect = scoreText.rectTransform;
-        scoreRect.anchorMin = new Vector2(0.5f, 0.6f);
-        scoreRect.anchorMax = new Vector2(0.5f, 0.6f);
-        scoreRect.pivot = new Vector2(0.5f, 0.5f);
-        scoreRect.sizeDelta = new Vector2(400f, 60f);
-        scoreRect.anchoredPosition = Vector2.zero;
+        Text scoreText = FindExistingScoreText();
+        if (scoreText == null)
+        {
+            scoreText = CreateText("ScoreText", string.Format("Score: {0}", score), 32, TextAnchor.MiddleCenter);
+            RectTransform scoreRect = scoreText.rectTransform;
+            scoreRect.anchorMin = new Vector2(0.5f, 0.6f);
+            scoreRect.anchorMax = new Vector2(0.5f, 0.6f);
+            scoreRect.pivot = new Vector2(0.5f, 0.5f);
+            scoreRect.sizeDelta = new Vector2(400f, 60f);
+            scoreRect.anchoredPosition = Vector2.zero;
+        }
+        else
+        {
+            scoreText.text = string.Format("Score: {0}", score);
+        }
 
         Button restartButton = CreateButton("RestartButton", "Restart");
         RectTransform restartRect = restartButton.GetComponent<RectTransform>();
@@ -55,6 +64,22 @@ public class ResultSceneUI : MonoBehaviour
         titleRect.sizeDelta = new Vector2(200f, 50f);
         titleRect.anchoredPosition = new Vector2(0f, 0f);
         titleButton.onClick.AddListener(GoToTitle);
+    }
+
+    Text FindExistingScoreText()
+    {
+        if (string.IsNullOrEmpty(scoreTextObjectName))
+        {
+            return null;
+        }
+
+        GameObject existing = GameObject.Find(scoreTextObjectName);
+        if (existing == null)
+        {
+            return null;
+        }
+
+        return existing.GetComponent<Text>();
     }
 
     Text CreateText(string name, string text, int fontSize, TextAnchor alignment)

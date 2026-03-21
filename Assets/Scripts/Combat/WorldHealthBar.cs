@@ -7,6 +7,7 @@ public class WorldHealthBar : MonoBehaviour
     [SerializeField] Vector2 size = new Vector2(0.6f, 0.08f);
     [SerializeField] Color fillColor = new Color(0f, 1f, 0f, 1f);
     [SerializeField] Color backgroundColor = new Color(0.4f, 0.4f, 0.4f, 1f);
+    [SerializeField] string sortingLayerName = "UI";
     [SerializeField] int sortingOrder = 10;
 
     Transform barRoot;
@@ -87,6 +88,7 @@ public class WorldHealthBar : MonoBehaviour
         SpriteRenderer rendererComponent = barObject.AddComponent<SpriteRenderer>();
         rendererComponent.sprite = sprite;
         rendererComponent.color = color;
+        rendererComponent.sortingLayerName = sortingLayerName;
         rendererComponent.sortingOrder = order;
         return rendererComponent;
     }

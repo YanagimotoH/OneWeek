@@ -20,6 +20,7 @@ GameObject:
   - component: {fileID: 6739447901691154719}
   - component: {fileID: 4761623733838094713}
   - component: {fileID: 2018849427462564929}
+  - component: {fileID: 6344679860046389264}
   m_Layer: 3
   m_Name: Enemy2
   m_TagString: Untagged
@@ -91,8 +92,8 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 100
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 7482667652216324306, guid: 311925a002f4447b3a28927169b83ea6, type: 3}
-  m_Color: {r: 1, g: 0, b: 0, a: 1}
+  m_Sprite: {fileID: 21300000, guid: 0675c30f37266f1478cce63ecdedbbc2, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -217,7 +218,7 @@ BoxCollider2D:
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0.5}
-    oldSize: {x: 1, y: 1}
+    oldSize: {x: 1.7066667, y: 1.7066667}
     newSize: {x: 1, y: 1}
     adaptiveTilingThreshold: 0.5
     drawMode: 0
@@ -280,7 +281,7 @@ MonoBehaviour:
   attackIntervalSeconds: 5
   attackDurationSeconds: 0.25
   maxDistance: 20
-  lineWidth: 0.3
+  lineWidth: 0.1
   lineColor: {r: 1, g: 0, b: 1, a: 1}
   wallMask:
     serializedVersion: 2
@@ -416,4 +417,27 @@ MonoBehaviour:
   size: {x: 0.4, y: 0.02}
   fillColor: {r: 0, g: 1, b: 0, a: 1}
   backgroundColor: {r: 0.4, g: 0.4, b: 0.4, a: 1}
+  sortingLayerName: Default
   sortingOrder: 10
+--- !u!95 &6344679860046389264
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 884279411786831848}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 956d5aceff7ea3143a876dc899604e7f, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0

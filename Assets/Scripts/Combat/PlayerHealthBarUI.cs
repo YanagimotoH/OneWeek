@@ -8,7 +8,8 @@ public class PlayerHealthBarUI : MonoBehaviour
     [SerializeField] Vector2 offset = new Vector2(10f, -10f);
     [SerializeField] Color fillColor = new Color(0f, 1f, 0f, 1f);
     [SerializeField] Color backgroundColor = new Color(0.4f, 0.4f, 0.4f, 1f);
-    [SerializeField] int sortingOrder = 10;
+    [SerializeField] string sortingLayerName = "UI";
+    [SerializeField] int sortingOrder = 20;
     [SerializeField] Canvas canvas;
 
     RectTransform barRoot;
@@ -50,27 +51,27 @@ public class PlayerHealthBarUI : MonoBehaviour
 
     void EnsureCanvas()
     {
-        if (canvas != null)
+        if (canvas == null)
         {
-            return;
-        }
-
-        GameObject existing = GameObject.Find("PlayerHealthCanvas");
-        if (existing != null)
-        {
-            canvas = existing.GetComponent<Canvas>();
-            if (canvas != null)
+            GameObject existing = GameObject.Find("PlayerHealthCanvas");
+            if (existing != null)
             {
-                return;
+                canvas = existing.GetComponent<Canvas>();
             }
         }
 
-        GameObject canvasObject = new GameObject("PlayerHealthCanvas");
-        canvas = canvasObject.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        if (canvas == null)
+        {
+            GameObject canvasObject = new GameObject("PlayerHealthCanvas");
+            canvas = canvasObject.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvasObject.AddComponent<CanvasScaler>();
+            canvasObject.AddComponent<GraphicRaycaster>();
+        }
+
+        canvas.overrideSorting = true;
+        canvas.sortingLayerName = sortingLayerName;
         canvas.sortingOrder = sortingOrder;
-        canvasObject.AddComponent<CanvasScaler>();
-        canvasObject.AddComponent<GraphicRaycaster>();
     }
 
     void EnsureBar()

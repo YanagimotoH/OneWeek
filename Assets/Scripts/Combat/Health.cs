@@ -16,6 +16,7 @@ public class Health : MonoBehaviour
 
     public event Action<int, int> HealthChanged;
     public event Action<Health> Died;
+    public event Action<int> Damaged;
 
     Coroutine blinkRoutine;
     bool isDead;
@@ -49,7 +50,12 @@ public class Health : MonoBehaviour
             return;
         }
 
+        int applied = Mathf.Min(amount, CurrentHp);
         CurrentHp = Mathf.Max(CurrentHp - amount, 0);
+        if (applied > 0)
+        {
+            Damaged?.Invoke(applied);
+        }
         HealthChanged?.Invoke(CurrentHp, maxHp);
         StartBlink();
 
